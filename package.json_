@@ -1,0 +1,26 @@
+{
+  "name": "roxy-migurdia",
+  "version": "0.1.0",
+  "author": "xialvjun<xialvjun@live.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forgojs/forgo"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^16.2.6",
+    "@types/mocha": "^8.2.1",
+    "@types/should": "^13.0.0",
+    "esm": "^3.2.25",
+    "jsdom": "^16.4.0",
+    "mocha": "^8.3.1",
+    "rimraf": "^3.0.2",
+    "should": "^13.2.3"
+  },
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "build": "mkdir dist -p && cp src/jsx.d.ts dist/jsx.d.ts && tsc",
+    "build-test": "tsc -p tsconfig.test.json",
+    "test": "mocha -r esm dist/test/test.js"
+  },
+  "license": "MIT"
+}

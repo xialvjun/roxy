@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "allowJs": false,
+    "target": "es2015",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "declaration": true,
+    "lib": ["ES2020", "DOM"],
+    "sourceMap": true,
+    "strict": true,
+    "strictNullChecks": true
+  },
+  "files": ["./src/index.ts"]
+}
