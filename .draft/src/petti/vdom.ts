@@ -144,6 +144,26 @@ interface Watch {
 // a(() => 3, (pv, cv, inv) => {});
 
 const $hooks = Symbol('hooks');
+
+const createInstance = (props, ctx) => {
+  [
+  'onBeforeMount',
+  'onMounted',
+  'onBeforeUpdate',
+  'onUpdated',
+  'onBeforeUnmount',
+  'onUnmounted',
+  ];
+  'onErrorCaptured';
+  // 所谓 watch 就是 effect 再进一步就是 lifeCycle
+  'watch';'effect';'lifeCycle';
+  // 所以就只有一个 on 方法，mount,mounted,update,updated,unmount,unmounted,error 七个事件
+  // 至于想要 watch，effect 这些，可以有 helper 
+
+  const hooks = {};
+  const ins = { props, ctx, [$hooks]: hooks };
+};
+
 class Instance<P extends {}, C> {
   props: P;
   ctx: C;
@@ -238,6 +258,8 @@ class Instance<P extends {}, C> {
 
 const ins_private = Symbol('ROXY_INSTANCE_PRIVATE');
 
+
+
 export function mount(vnode: VNode, env = DEFAULT_ENV, ctx: any=null): Ref {
   if (isEmpty(vnode)) {
     return {
@@ -318,6 +340,13 @@ export function mount(vnode: VNode, env = DEFAULT_ENV, ctx: any=null): Ref {
   // }
   throw new Error('mount: Invalid Vnode!');
 }
+
+
+// createNode(null / string / number / { type: string, props: any(key,ref) }, ctx); // 组件的 ctx 默认创建新的，原生的 ctx 默认用旧的
+// mountAttributes()
+// insertDom(node, childrenRef, null);
+// mountDirectives(node, props, env);
+// (ref as RefSingle).node.nodeValue
 
 export function patch(
   parentDomNode: Node,

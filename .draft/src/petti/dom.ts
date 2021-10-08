@@ -7,7 +7,7 @@ export const enum RefType {
   ARRAY,
   PARENT,
 }
-
+// document.addEventListener
 export const SVG_NS = 'http://www.w3.org/2000/svg';
 
 type DomNode = Node;
@@ -176,6 +176,22 @@ export function unmountDirectives(
   }
 }
 
+// export function mountDirectives(domElement: DomElement, props: any, env: any) {
+//   for (let key in props) {
+//     if (key in env.directives) {
+//       env.directives[key].mount(domElement, props[key]);
+//     }
+//   }
+// }
+// mountDirectives 与 mountAttributes 是一回事，只是 mountDirectives 更特殊些，但其实也有通用模式
+// 两个区别：
+// 1. 先 mountAttributes 后 mountChildren 再后 mountDirectives
+// 2. mountAttributes 是在操作中判断属性（setDOMAttribute 可能内部根据不同的key做不同的操作），mountDirectives是先判断属性，后按属性定义的方式操作
+// 3. children 特殊主要是 ctx（创建了个 svg 后，下面的元素都用 document.createElementNS 去创建）
+// 所以有 mountAttributesBeforeChildren, mountAttributesAfterChildren
+// attributes 可能也有先后，所以只提供批量 mountAttributes 的方法，而不是直接调用 setAttribute 方法。
+// 创建节点可能也需要 attributes 信息。。。可能不只需要 children 信息，还需要 children 实例。。。
+// 需要 children 实例的，vnode 结构实现不了（那需要 父子倒换，但子是多个，只能叠起来），说到底就是不能让多个对象在创建期间就互相依赖，总有一个的依赖是可空的
 export function mountAttributes(domElement: DomElement, props: any, env: Env) {
   for (var key in props) {
     if (key === 'key' || key === 'children' || key in env.directives) continue;
