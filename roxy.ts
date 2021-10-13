@@ -31,6 +31,8 @@ export type Env<N = any> = {
 type EventMap = {
   mount: never;
   mounted: never;
+  render: never;
+  rendered: never;
   update: never;
   updated: never;
   unmount: never;
@@ -74,19 +76,19 @@ const enum RefType {
 type RefItem<N, S> = {
   type: RefType.ITEM;
   node: N;
-  children?: Ref<N, S> | null;
+  children_ref?: Ref<N, S> | null;
   state: S; // RefItem 的 state 不一定只有 env_ctx, 有可能也有别的，
   // 例如有的平台没有 removeEventListener，只有 addEventListener 时返回的 revoker，则需要把 revoker 放进 state 中
   // state 跟 ctx 不是一回事，不能把 state 放进 ctx 中
 };
 type RefList<N, S> = {
   type: RefType.LIST;
-  list: [Ref<N, S>, ...Ref<N, S>[]];
+  ref_list: [Ref<N, S>, ...Ref<N, S>[]];
   state: S;
 };
 type RefRoxy<N, S> = {
   type: RefType.ROXY;
-  rendered: Ref<N, S>;
+  sub_ref: Ref<N, S>;
   state: S;
 };
 type Ref<N = any, S = any> = RefItem<N, S> | RefList<N, S> | RefRoxy<N, S>;
@@ -97,10 +99,10 @@ function getHeadNode<N>(ref: Ref<N>): N {
     return ref.node;
   }
   if (ref.type === RefType.LIST) {
-    return getHeadNode(ref.list[0]);
+    return getHeadNode(ref.ref_list[0]);
   }
   if (ref.type === RefType.ROXY) {
-    return getHeadNode(ref.rendered);
+    return getHeadNode(ref.sub_ref);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -109,10 +111,10 @@ function getParentNode<N>(ref: Ref<N>, env: Env<N>): N | null {
     return env.parentNode(ref.node);
   }
   if (ref.type === RefType.LIST) {
-    return getParentNode(ref.list[0], env);
+    return getParentNode(ref.ref_list[0], env);
   }
   if (ref.type === RefType.ROXY) {
-    return getParentNode(ref.rendered, env);
+    return getParentNode(ref.sub_ref, env);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -121,10 +123,10 @@ function getNextSibling<N>(ref: Ref<N>, env: Env): N | null {
     return env.nextSibling(ref.node);
   }
   if (ref.type === RefType.LIST) {
-    return getNextSibling(ref.list[ref.list.length - 1], env);
+    return getNextSibling(ref.ref_list[ref.ref_list.length - 1], env);
   }
   if (ref.type === RefType.ROXY) {
-    return getNextSibling(ref.rendered, env);
+    return getNextSibling(ref.sub_ref, env);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -138,12 +140,12 @@ function insertNodes<N>(
     return env.insertBefore(parentNode, ref.node, nextSibling);
   }
   if (ref.type === RefType.LIST) {
-    return ref.list.forEach((ch) => {
+    return ref.ref_list.forEach((ch) => {
       insertNodes(parentNode, ch, nextSibling, env);
     });
   }
   if (ref.type === RefType.ROXY) {
-    return insertNodes(parentNode, ref.rendered, nextSibling, env);
+    return insertNodes(parentNode, ref.sub_ref, nextSibling, env);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -152,12 +154,12 @@ function removeNodes<N>(parentNode: N, ref: Ref, env: Env) {
     return env.removeChild(parentNode, ref.node);
   }
   if (ref.type === RefType.LIST) {
-    return ref.list.forEach((ch) => {
+    return ref.ref_list.forEach((ch) => {
       removeNodes(parentNode, ch, env);
     });
   }
   if (ref.type === RefType.ROXY) {
-    removeNodes(parentNode, ref.rendered, env);
+    removeNodes(parentNode, ref.sub_ref, env);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -194,11 +196,7 @@ export function mount<N>(
   if (hs.isEmpty(vnode) || hs.isLeaf(vnode)) {
     const node = env.createNode(vnode, env_ctx).node;
     env.insertBefore(parentNode, node, null);
-    return {
-      type: RefType.ITEM,
-      node, // document.createComment('NULL') | document.createTextNode(vnode as string),
-      state: env_ctx,
-    };
+    return { type: RefType.ITEM, node, state: env_ctx, };
   }
   if (hs.isElement(vnode)) {
     const creation = env.createNode(vnode, env_ctx);
@@ -206,42 +204,16 @@ export function mount<N>(
     env.insertBefore(parentNode, node, null);
     env_ctx = creation.ctx;
     env.mountAttributesBeforeChildren(node, vnode, env_ctx);
-    const childrenVnode = vnode.props.children;
-    const children = childrenVnode == null ? childrenVnode : mount(childrenVnode, node, env, ctx, env_ctx);
-    // if (child != null) insertNodes(node, child, null, env);
+    const children_vnode = vnode.props.children;
+    const children_ref = children_vnode == null ? children_vnode : mount(children_vnode, node, env, ctx, env_ctx);
+    // if (children_ref != null) insertNodes(node, children_ref, null, env);
     env.mountAttributesAfterChildren(node, vnode, env_ctx);
-    return { type: RefType.ITEM, node, children, state: env_ctx };
-
-    // let node: Element;
-    // let { type, props } = vnode;
-    // if (type === 'svg' && !env.isSvg) {
-    //   env = { ...env, isSvg: true };
-    // }
-    // if (!env.isSvg) {
-    //   node = document.createElement(type);
-    // } else {
-    //   node = document.createElementNS(SVG_NS, type);
-    // }
-
-    // mountAttributes(node, props, env);
-    // let childrenRef: Ref | null | undefined =
-    //   props.children == null ? props.children : mount(props.children, env);
-    // /**
-    //  * We need to insert content before setting interactive props
-    //  * that rely on children been present (e.g select)
-    //  */
-    // if (childrenRef != null) insertDom(node, childrenRef, null);
-    // mountDirectives(node, props, env);
-    // return {
-    //   type: RefType.SINGLE,
-    //   node,
-    //   children: childrenRef!,
-    // };
+    return { type: RefType.ITEM, node, children_ref, state: env_ctx };
   }
   if (hs.isNonEmptyArray(vnode)) {
     return {
       type: RefType.LIST,
-      list: vnode.map((child) => mount(child, parentNode, env, ctx, env_ctx)) as [any, ...any[]],
+      ref_list: vnode.map((child) => mount(child, parentNode, env, ctx, env_ctx)) as [any, ...any[]],
       state: env_ctx,
     };
   }
@@ -266,15 +238,16 @@ export function mount<N>(
     const { type, props } = vnode;
     const ins = instance(props, ctx);
     const render = type(props, ins);
-    const result = render(props);
     // ? before mount 应在什么时候运行，render 前还是后，最终决定是 后，因为 render 前的话，在 type 中就可以执行
     // 至于 before update，则是在 render 前执行 --- 感觉 mount 与 update 有不一致。是否应该加个 render/rendered 生命周期
+    // 算了，还是放在 render 前吧，跟 update 保持一致。以后如果发现有必要，再加生命周期
     ins[instance.ons].mount?.forEach(l => l());
-    const rendered = mount(result, parentNode, env, ins.ctx, env_ctx);
+    const result = render(props);
+    const sub_ref = mount(result, parentNode, env, ins.ctx, env_ctx);
     ins[instance.ons].mounted?.forEach(l => l());
     return {
       type: RefType.ROXY,
-      rendered,
+      sub_ref,
       state: { ins, render, result, env_ctx },
     }
 
