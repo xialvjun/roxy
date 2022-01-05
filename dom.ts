@@ -280,14 +280,17 @@ const env: Env = {
     return { node: document.createElement(vnode.type), ctx };
   },
   mountAttributesBeforeChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
-  insertBefore(parentNode: any, newNode: any, referenceNode?: any): void {}, // return insertedNode = newNode;
   mountAttributesAfterChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
   patchAttributesBeforeChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
   // replaceNode?(parentNode: any, newNode: any, oldNode: any): void {}, // 
   patchAttributesAfterChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
   unmountAttributesBeforeChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
-  removeNode(parentNode: any, child: any): void {},
-  unmountAttributesAfterChildren(node: any, vnode: any, ctx: any): any {} // return ctx;
+  // removeNode(parentNode: any, child: any): void {},
+  unmountAttributesAfterChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
+  insertBefore(parentNode: any, newNode: any, referenceNode?: any): void {}, // return insertedNode = newNode;
+  removeChild(parentNode: any, child: any): void {},
+  parentNode(node: any): any | null {},
+  nextSibling(node: any): any | null {},
 }
 
 export = env;
