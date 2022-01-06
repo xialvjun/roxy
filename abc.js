@@ -72,3 +72,7 @@ function defineComponent<Props extends {}, Ctx extends {}, Expose=never, Provide
 // // const a: C = null!;
 
 // Way2 is better
+
+
+// ! 先不弄什么 expose provide， expose 就是简单的 props.ref, 子组建怎么处理这 ref 属性是子组建的事情。
+// ! 这样的话，return {render, provide} 只有两个属性了，感觉 provide 有点多余，所以就先实现简单的 ctx 了

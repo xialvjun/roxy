@@ -246,7 +246,7 @@
 //   createNode(vnode: any, ctx: any) {
 
 //   },
-  
+
 // };
 
 import type { Env } from './roxy';
@@ -267,30 +267,28 @@ import type { Env } from './roxy';
 // export function mountAttributesBeforeChildren(node: any, vnode: any, ctx: any): any {} // return ctx;
 
 const env: Env = {
-  createNode(vnode: any, ctx: any): { node: any, ctx: any } {
+  createNode(vnode, ctx) {
     if (vnode === false || vnode === null || vnode === undefined || Array.isArray(vnode) && vnode.length === 0) {
       return { node: document.createComment('roxy'), ctx: 'comment' };
     }
     if (typeof vnode === 'string' || typeof vnode === 'number') {
-      return { node: document.createTextNode(vnode+''), ctx: 'text' };
+      return { node: document.createTextNode(vnode + ''), ctx: 'text' };
     }
     if (vnode.type === 'svg') {
       return { node: document.createElementNS('', 'svg'), ctx: 'svg' };
     }
     return { node: document.createElement(vnode.type), ctx };
   },
-  mountAttributesBeforeChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
-  mountAttributesAfterChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
-  patchAttributesBeforeChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
-  // replaceNode?(parentNode: any, newNode: any, oldNode: any): void {}, // 
-  patchAttributesAfterChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
-  unmountAttributesBeforeChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
-  // removeNode(parentNode: any, child: any): void {},
-  unmountAttributesAfterChildren(node: any, vnode: any, ctx: any): any {}, // return ctx;
-  insertBefore(parentNode: any, newNode: any, referenceNode?: any): void {}, // return insertedNode = newNode;
-  removeChild(parentNode: any, child: any): void {},
-  parentNode(node: any): any | null {},
-  nextSibling(node: any): any | null {},
+  mountAttributesBeforeChildren(node, vnode, ctx) { },
+  mountAttributesAfterChildren(node, vnode, ctx) { },
+  patchAttributesBeforeChildren(node, vnode, ctx) { },
+  patchAttributesAfterChildren(node, vnode, ctx) { },
+  unmountAttributesBeforeChildren(node, vnode, ctx) { },
+  unmountAttributesAfterChildren(node, vnode, ctx) { },
+  insertBefore(parentNode, newNode, referenceNode?) { },
+  removeChild(parentNode, child) { },
+  parentNode(node) { },
+  nextSibling(node) { },
 }
 
 export = env;
