@@ -39,8 +39,9 @@ type EventMap = {
   unmounted: never;
   error: Error;
 };
+
 // const ons_symbol = Symbol('ons');
-function instance<P = any, C extends {}={}>(props: P, ctx: C|null=null) {
+function instance<P = any, C extends object=object>(props: P, ctx: C|null=null) {
   const ons: Record<keyof EventMap, Function[]> = {} as any;
   const on = <K extends keyof EventMap>(
     type: K,
@@ -176,7 +177,7 @@ function replaceNodes<N>(parentNode: N, newRef: Ref, oldRef: Ref, env: Env) {
 
 // mount(vnode, env=env_dom, env_ctx=null, roxy_ctx=null)
 type RefRoxyState = string | { ins: ReturnType<typeof instance>, render: ()=>hs.Vnode, result: hs.Vnode, env_ctx: string };
-export function mount<N>(
+export function mount<N=any>(
   vnode: hs.Vnode,
   parentNode: N,
   env: Env<N>,
@@ -237,6 +238,8 @@ export function mount<N>(
 
     const { type, props } = vnode;
     const ins = instance(props, ctx);
+    const _binding = type(props, ins);
+    const binding = typeof _binding === 'function' ? { render: _binding } : _binding;
     const render = type(props, ins);
     // ? before mount 应在什么时候运行，render 前还是后，最终决定是 后，因为 render 前的话，在 type 中就可以执行
     // 至于 before update，则是在 render 前执行 --- 感觉 mount 与 update 有不一致。是否应该加个 render/rendered 生命周期

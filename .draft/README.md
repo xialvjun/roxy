@@ -134,3 +134,69 @@ var a = _jsxs("div", __assign({ id: "sfa" }, { children: [_jsx("button", { child
 字面量的 key: `<div><span key="1"/><span key="2"/></div>`
 数组的 key: `<div>{[<span key="1"/>, <span key="2"/>]}</div>`
 于是，现在有问题：数组，是应该算作一个组件，还是应该合并到 children 中（把 children flatten），从而 key 的命名空间合并
+
+
+```jsx
+const NOT_WRONG = (
+  <Setup>
+    {(a_ins) => {
+      let a = 0;
+      return () => (
+        <Setup>
+          {(b_ins) => {
+            let b = 100;
+            return () => (
+              <div>
+                <div>
+                  <button onClick={() => a_ins.update(() => (a += 1))}>v</button>
+                  <button onClick={() => b_ins.update(() => (b += 1))}>n</button>
+                </div>
+                <div>{a + b}</div>
+              </div>
+            );
+          }}
+        </Setup>
+      );
+    }}
+  </Setup>
+);
+
+// 可能以为 NOT_WRONG 的写法是错的, 以为 b_ins 拿到的 a 一直是旧的 a, 以为需要用下面 RIGHT_BUT_VERBOSE 写法... 其实这写法是对的, 因为根本不存在旧的 a, 从头到尾只定义了一个 a, a_ins 的 setup 只运行过一次
+// 哪怕后面 a_ins.update(() => (a += 1), 它准确说其实是寻址到 a 上, 改变其值, 下次访问 a 的时候仍然是寻址 a, 但整个过程 a 的地址没变化, 所以一直是实时的
+
+const RIGHT_BUT_VERBOSE = (
+  <Setup>
+    {(a_ins) => {
+      let a = 0;
+      return () => (
+        <Setup a={a}>
+          {(b_ins) => {
+            let b = 100;
+            return (b_props) => (
+              <div>
+                <div>
+                  <button onClick={() => a_ins.update(() => (a += 1))}>v</button>
+                  <button onClick={() => b_ins.update(() => (b += 1))}>n</button>
+                </div>
+                <div>{b_props.a + b}</div>
+              </div>
+            );
+          }}
+        </Setup>
+      );
+    }}
+  </Setup>
+);
+
+
+// 有个问题, <div>{condition && <Setup />}<Setup /></div> 这种, 当 condition 1to0 时, 它其实会销毁第二个组件, 这是有问题的, 所以可以弄个 Proxy
+const Setup = new Proxy({}, {
+  get(cache,key,r) {
+    if (cache[key]) {
+      return cache[key];
+    }
+    return cache[key] = (props, ins) => props.children(ins);
+  }
+});
+// 这里有 cache 保证两次渲染 Setup.ComA, roxy 不会认为组件 type 不同导致重新构建, 而且 Setup.ComA 还给这个 setup 组件加了个 ComA 的业务相关的名字
+```
