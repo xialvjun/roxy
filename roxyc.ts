@@ -205,7 +205,7 @@ function replaceNodes<N>(parentNode: N, newRef: Ref, oldRef: Ref, env: Env) {
 
 /**
  * 生命周期执行逻辑。因为要有 onMounted 生命周期，所以 mount 函数不能无中生有创造 node 节点，而应该是父节点直接传给 mount，它才有生命周期。
- * 如果无中生有创建节点，但一开始不执行 onMounted，但用户把创建的 node attatch 时又不会通知框架去执行生命周期。
+ * 如果无中生有创建节点，但一开始不执行 onMounted 似乎可以，但实际不行，因为用户把创建的 node attatch 时又不会通知框架去执行生命周期。
  * 其他应用也是 createApp().mount(node), 真实操作仍在 mount 那一步。
  */
 
@@ -237,6 +237,8 @@ export function mount<N>(
   if (hs.isElement(vnode)) {
     const creation = env.createNode(vnode, env_ctx);
     const node = creation.node;
+    // ref 在 node 创建后立即执行，而不用考虑什么 mounted，避免复杂
+    (vnode.props as any).ref?.(node);
     env_ctx = creation.ctx;
     env.insertBefore(parentNode, node, null);
     env.mountAttributesBeforeChildren(node, vnode, env_ctx);
@@ -271,9 +273,16 @@ export function mount<N>(
     // const onMounted = (fn) => hooks.onMounted.push(fn);
 
     const { type, props } = vnode;
-    const ins = instance(props, ctx, ()=> {
-      // patch(parentNode, )
-    });
+    const update = (fn?: ()=>any) => {
+      START(fn);
+      START(() => {
+        ins[instance.ons].render?.forEach(l => l());
+        const result = render(ins.props);
+        ins[instance.ons].rendered?.forEach(l => l());
+        patch(parentNode, result, roxy_ref.state.result, roxy_ref, env);
+      });
+    };
+    const ins = instance(props, ctx, update);
     // const _binding = type(props, ins);
     // const binding = typeof _binding === 'function' ? { render: _binding } : _binding;
     // const { render, expose, provide } = binding;
@@ -285,11 +294,12 @@ export function mount<N>(
     const result = render(props);
     const resRef = mount(result, parentNode, env, ins.ctx, env_ctx);
     ins[instance.ons].mounted?.forEach(l => l());
-    return {
+    const roxy_ref = {
       type: RefType.ROXY,
       resRef,
       state: { ins, render, result, env_ctx },
     }
+    return roxy_ref;
 
     // const ins = new Instance(props, ctx);
 

@@ -41,3 +41,8 @@ export function h(type: string | Function, props?: any, ...children: any[]) {
 export function Fragment(init_props: any) {
   return (props: any) => props.children;
 }
+
+// type, props, key, __self, __source
+export function jsx(type: string|Function, props: any, key: any, __self: any, __source: any) {
+  return { type, props, key };
+}
