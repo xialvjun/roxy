@@ -76,3 +76,13 @@ function defineComponent<Props extends {}, Ctx extends {}, Expose=never, Provide
 
 // ! 先不弄什么 expose provide， expose 就是简单的 props.ref, 子组建怎么处理这 ref 属性是子组建的事情。
 // ! 这样的话，return {render, provide} 只有两个属性了，感觉 provide 有点多余，所以就先实现简单的 ctx 了
+
+
+// ref 的实现思路。。。 因为 typescript 没有 infer 类型，所以可以
+const RefCase = (init_props, ins) => {
+  const some_ref = h(() => <div>67678</div>);
+  some_ref.value;
+  // 这时，some_ref 能清晰地拿到 div 的类型，并且在 render 的时候，每次都会重新执行 h 里面的函数。。。
+  // 但如果 ts 有 infer 类型，则这种写法感觉并没有太大必要。事实上它也应该有点问题：万一 jsx 把 some_ref 放到了两个位置，那那个 value 是什么？数组吗？顺序是怎样的
+  return () => <div>{some_ref}</div>
+}

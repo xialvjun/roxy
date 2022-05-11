@@ -2,6 +2,14 @@
 
 import * as hs from './h';
 
+const try_catch_log = (fn: Function) => {
+  try {
+    fn();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 // type A = number | null;
 // type B = null extends A ? 1 : 2;
 // type Super<S, T> = T extends S ? any : never;
@@ -53,17 +61,25 @@ const START = ((tasks: any[], is_working: boolean) => (work: any) => {
 
 // ! instance
 type EventMap = {
+  // ? 是 mount - render - rendered - mounted - (update - render - rendered - updated)* - unmount - unmounted
   mount: never;
   mounted: never;
-  render: never;
-  rendered: never;
+  // render/rendered 没看出来意义，之前只是因为 mount 是否在 render 前后，而想的加 render/rendered，但既然定在前，那就没必要了
+  // render: never;
+  // rendered: never;
   update: never;
   updated: never;
   patch: never;
   patched: never;
   unmount: never;
   unmounted: never;
-  error: Error;
+  error: Error; // error 只有 setup/render 函数，至于别的 hook，都在自己的异步下执行
+  // activate/deactivate 都放在 ctx 上，最终 listener 数组是在 KeepAlive 组件上，由 KeepAlive 组件去执行。。。
+  // KeepAlive 的实现是通过 Portal 实现的，移除的时候，Portal 到一个未 attach 节点上，加入的时候 Portal 到 KeepAlive 所在节点，这样就从 vdom 的 type 或结构变化 变为了 Portal 的属性变化
+  // activate: never;
+  // activated: never;
+  // deactivate: never;
+  // deactivated: never;
 };
 // const ons_symbol = Symbol('ons');
 function instance<P = any, C extends object = object>(props: P, ctx: C | null = null, update: (fn?: ()=>any)=>any) {
@@ -230,6 +246,11 @@ export function mount<N>(
   if (hs.isEmpty(vnode) || hs.isLeaf(vnode)) {
     const creation = env.createNode(vnode, env_ctx);
     const node = creation.node;
+    // ! todo: 可以把所有的 dom 操作和 hooks 都放进 ctx 里（用 symbol），然后统一执行 dom 操作 和 hooks，因为 hooks 放置的数据结构
+    // （执行自己的 mount 会先执行自己的 mount 函数，后执行自己直系下属组件的 mount，所以自己更新，最终的执行顺序只要关注自己就可以了）
+    // 这样的话，似乎就没法异步停止了，也没法去重。或许停止可以做，但去重就做不到了。。。
+    // 去重还是非常需要的，至于对称性问题，应该程序员自己根据生命周期做调整（例如动画，就应该 update 之后 onUpdated 之后再 update，而不是想当然的用 setTimeout 替换 onUpdated）
+    // 去重可以 自己 update 后，父组件 update，祖 update，造成整个的自己只 render / update 一次，onUpdated 只执行一次，onUpdate 也许也只执行一次
     env_ctx = creation.ctx;
     env.insertBefore(parentNode, node, null);
     return { type: RefType.ITEM, node, state: { env_ctx } };
@@ -271,7 +292,7 @@ export function mount<N>(
     // const onMounted = (fn) => hooks.onMounted.push(fn);
 
     const { type, props } = vnode;
-    const ins = instance(props, ctx, ()=> {
+    const ins = instance(props, ctx, () => {
       // patch(parentNode, )
     });
     // const _binding = type(props, ins);
@@ -281,10 +302,17 @@ export function mount<N>(
     // ? before mount 应在什么时候运行，render 前还是后，最终决定是 后，因为 render 前的话，在 type 中就可以执行
     // 至于 before update，则是在 render 前执行 --- 感觉 mount 与 update 有不一致。是否应该加个 render/rendered 生命周期
     // 算了，还是放在 render 前吧，跟 update 保持一致。以后如果发现有必要，再加生命周期
-    ins[instance.ons].mount?.forEach(l => l());
+    ins[instance.ons].mount?.forEach(try_catch_log);
     const result = render(props);
-    const resRef = mount(result, parentNode, env, ins.ctx, env_ctx);
-    ins[instance.ons].mounted?.forEach(l => l());
+    let resRef = null;
+    try {
+      resRef = mount(result, parentNode, env, ins.ctx, env_ctx);
+    } catch (error) {
+      // error 后，需要把 上面的 mount 都给回退，目前回退不了，但之后把 dom 操作都放到列表里统一执行，就可以回腿了。
+      // 至于 error 的 listener, 它的执行力修改了 state, 也只是一次 update. 现在这次应该让它 render null
+      ins[instance.ons].error?.forEach(l => try_catch_log(() => l(error)));
+    }
+    ins[instance.ons].mounted?.forEach(try_catch_log);
     return {
       type: RefType.ROXY,
       resRef,
