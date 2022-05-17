@@ -2,7 +2,7 @@
 
 import * as hs from './h';
 
-const rps = Symbol('roxy_private_symbol');
+const PRIVATE = Symbol('roxy_private_symbol');
 
 const try_catch_log = (fn: Function) => {
   try {
@@ -10,7 +10,7 @@ const try_catch_log = (fn: Function) => {
   } catch (error) {
     console.error(error);
   }
-}
+};
 
 // type A = number | null;
 // type B = null extends A ? 1 : 2;
@@ -55,7 +55,7 @@ const START = ((tasks: any[], is_working: boolean) => (work: any) => {
   if (is_working) return;
   is_working = true;
   work = null;
-  while (work = tasks.pop()) {
+  while ((work = tasks.pop())) {
     work();
   }
   is_working = false;
@@ -90,30 +90,20 @@ type EventMap = {
   // deactivated: never;
 };
 // const ons_symbol = Symbol('ons');
-function instance<P = any, C extends object = object>(props: P, ctx: C | null = null, update: (fn?: ()=>any)=>void) {
+function instance<P = any, C extends object = object>(props: P, ctx: C | null = null, update: (fn?: () => void | (() => any)) => void) {
   const ons: Record<keyof EventMap, Set<Function>> = {} as any;
-  const on = <K extends keyof EventMap>(
-    type: K,
-    listener: (event: EventMap[K]) => any,
-  ) => {
+  const on = <K extends keyof EventMap>(type: K, listener: (event: EventMap[K]) => void) => {
     ons[type] ??= new Set();
     ons[type].add(listener);
     return () => ons[type].delete(listener);
-    // ons[type] = [...ons[type], listener];
-    // return () => {
-    //   ons[type].splice(ons[type].indexOf(listener), 1);
-    // }
-    // return () => {
-    //   ons[type] = ons[type].filter((l) => l !== listener);
-    // };
   };
-  // const updates: (() => any)[] = [];
-  // const update = (fn?: ()=>any) => {
-  //   // fn && updates.push(fn);
-  //   // schedule();
-  //   START(['update', fn])
-  // }
-  return { props, ctx: Object.create(ctx) as C & Record<PropertyKey, any>, [rps]: ons, on, update };
+  // const once = (type: any, listener: any) => {
+  //   const revert = on(type, () => {
+  //     revert();
+  //     listener();
+  //   });
+  // };
+  return { props, ctx: Object.create(ctx) as C & Record<PropertyKey, any>, [PRIVATE]: ons, on, update };
 }
 // instance.ons = Symbol('instance.ons');
 // const ons_symbol = Symbol('ons');
@@ -129,6 +119,8 @@ function instance<P = any, C extends object = object>(props: P, ctx: C | null = 
 // b.c = 123;
 // b[Symbol()] = {};
 
+type NonEmptyList<T> = [T, ...T[]];
+
 // ! mount reference
 const enum RefType {
   ITEM,
@@ -138,19 +130,19 @@ const enum RefType {
 type ItemRef<N, S> = {
   type: RefType.ITEM;
   node: N;
-  listRef?: Ref<N, S> | null;
+  children_ref?: Ref<N, S> | null;
   state: S; // ItemRef 的 state 不一定只有 env_ctx, 有可能也有别的，
   // 例如有的平台没有 removeEventListener，只有 addEventListener 时返回的 revoker，则需要把 revoker 放进 state 中
   // state 跟 ctx 不是一回事，不能把 state 放进 ctx 中
 };
 type ListRef<N, S> = {
   type: RefType.LIST;
-  refList: [Ref<N, S>, ...Ref<N, S>[]];
+  ref_list: [Ref<N, S>, ...Ref<N, S>[]];
   state: S;
 };
 type RoxyRef<N, S> = {
   type: RefType.ROXY;
-  resRef: Ref<N, S>;
+  result_ref: Ref<N, S>;
   state: S;
 };
 type Ref<N = any, S = any> = ItemRef<N, S> | ListRef<N, S> | RoxyRef<N, S>;
@@ -161,10 +153,10 @@ function getHeadNode<N>(ref: Ref<N>): N {
     return ref.node;
   }
   if (ref.type === RefType.LIST) {
-    return getHeadNode(ref.refList[0]);
+    return getHeadNode(ref.ref_list[0]);
   }
   if (ref.type === RefType.ROXY) {
-    return getHeadNode(ref.resRef);
+    return getHeadNode(ref.result_ref);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -173,10 +165,10 @@ function getParentNode<N>(ref: Ref<N>, env: Env<N>): N | null {
     return env.parentNode(ref.node);
   }
   if (ref.type === RefType.LIST) {
-    return getParentNode(ref.refList[0], env);
+    return getParentNode(ref.ref_list[0], env);
   }
   if (ref.type === RefType.ROXY) {
-    return getParentNode(ref.resRef, env);
+    return getParentNode(ref.result_ref, env);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -185,29 +177,24 @@ function getNextSibling<N>(ref: Ref<N>, env: Env): N | null {
     return env.nextSibling(ref.node);
   }
   if (ref.type === RefType.LIST) {
-    return getNextSibling(ref.refList[ref.refList.length - 1], env);
+    return getNextSibling(ref.ref_list[ref.ref_list.length - 1], env);
   }
   if (ref.type === RefType.ROXY) {
-    return getNextSibling(ref.resRef, env);
+    return getNextSibling(ref.result_ref, env);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
-function insertNodes<N>(
-  parentNode: N,
-  ref: Ref<N>,
-  nextSibling: N | null,
-  env: Env,
-): void {
+function insertNodes<N>(parentNode: N, ref: Ref<N>, nextSibling: N | null, env: Env): void {
   if (ref.type === RefType.ITEM) {
     return env.insertBefore(parentNode, ref.node, nextSibling);
   }
   if (ref.type === RefType.LIST) {
-    return ref.refList.forEach((ch) => {
+    return ref.ref_list.forEach(ch => {
       insertNodes(parentNode, ch, nextSibling, env);
     });
   }
   if (ref.type === RefType.ROXY) {
-    return insertNodes(parentNode, ref.resRef, nextSibling, env);
+    return insertNodes(parentNode, ref.result_ref, nextSibling, env);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -216,12 +203,12 @@ function removeNodes<N>(parentNode: N, ref: Ref, env: Env) {
     return env.removeChild(parentNode, ref.node);
   }
   if (ref.type === RefType.LIST) {
-    return ref.refList.forEach((ch) => {
+    return ref.ref_list.forEach(ch => {
       removeNodes(parentNode, ch, env);
     });
   }
   if (ref.type === RefType.ROXY) {
-    removeNodes(parentNode, ref.resRef, env);
+    removeNodes(parentNode, ref.result_ref, env);
   }
   throw new Error('Unkown ref type ' + JSON.stringify(ref));
 }
@@ -238,14 +225,7 @@ function replaceNodes<N>(parentNode: N, newRef: Ref, oldRef: Ref, env: Env) {
 
 // mount(vnode, env=env_dom, env_ctx=null, roxy_ctx=null)
 // type RefRoxyState = string | { ins: ReturnType<typeof instance>, render: () => hs.Vnode, result: hs.Vnode, env_ctx: string, ctx: any };
-export function mount<N>(
-  vnode: hs.Vnode,
-  parentNode: N,
-  env: Env<N>,
-  ctx: any = null,
-  env_ctx = '',
-): Ref<N, any> {
-
+export function mount<N>(vnode: hs.Vnode, parentNode: N, env: Env<N>, ctx: any = null, env_ctx = ''): Ref<N, any> {
   // ctx.env | ctx.roxy
   // const creation = env.createNode(vnode, env_ctx);
   // const node = creation.node;
@@ -273,14 +253,14 @@ export function mount<N>(
     env.insertBefore(parentNode, node, null);
     env.mountAttributesBeforeChildren(node, vnode, env_ctx);
     const children_vnode = vnode.props.children;
-    const listRef = children_vnode == null ? children_vnode : mount(children_vnode, node, env, ctx, env_ctx);
+    const children_ref = children_vnode == null ? children_vnode : mount(children_vnode, node, env, ctx, env_ctx);
     env.mountAttributesAfterChildren(node, vnode, env_ctx);
-    return { type: RefType.ITEM, node, listRef, state: { env_ctx, ctx } };
+    return { type: RefType.ITEM, node, children_ref, state: { env_ctx, ctx } };
   }
   if (hs.isNonEmptyArray(vnode)) {
     return {
       type: RefType.LIST,
-      refList: vnode.map((child) => mount(child, parentNode, env, ctx, env_ctx)) as [any, ...any[]],
+      ref_list: vnode.map(child => mount(child, parentNode, env, ctx, env_ctx)) as [any, ...any[]],
       state: { env_ctx, ctx },
     };
   }
@@ -313,22 +293,22 @@ export function mount<N>(
     // ? before mount 应在什么时候运行，render 前还是后，最终决定是 后，因为 render 前的话，在 type 中就可以执行
     // 至于 before update，则是在 render 前执行 --- 感觉 mount 与 update 有不一致。是否应该加个 render/rendered 生命周期
     // 算了，还是放在 render 前吧，跟 update 保持一致。以后如果发现有必要，再加生命周期
-    ins[instance.ons].mount?.forEach(try_catch_log);
+    ins[PRIVATE].mount?.forEach(try_catch_log);
     const result = render(props);
-    let resRef = null;
+    let result_ref = null;
     try {
-      resRef = mount(result, parentNode, env, ins.ctx, env_ctx);
+      result_ref = mount(result, parentNode, env, ins.ctx, env_ctx);
     } catch (error) {
       // error 后，需要把 上面的 mount 都给回退，目前回退不了，但之后把 dom 操作都放到列表里统一执行，就可以回腿了。
       // 至于 error 的 listener, 它的执行力修改了 state, 也只是一次 update. 现在这次应该让它 render null
-      ins[instance.ons].error?.forEach(l => try_catch_log(() => l(error)));
+      ins[PRIVATE].error?.forEach(l => try_catch_log(() => l(error)));
     }
-    ins[instance.ons].mounted?.forEach(try_catch_log);
+    ins[PRIVATE].mounted?.forEach(try_catch_log);
     return {
       type: RefType.ROXY,
-      resRef,
+      result_ref,
       state: { ins, render, result, env_ctx },
-    }
+    };
 
     // const ins = new Instance(props, ctx);
 
@@ -351,13 +331,7 @@ export function mount<N>(
   throw new Error('mount: Invalid Vnode!');
 }
 
-export function patch<N>(
-  parentDomNode: Node,
-  newVNode: hs.Vnode,
-  oldVNode: hs.Vnode,
-  ref: Ref<N, any>,
-  env: Env<N>,
-): Ref<N, any> {
+export function patch<N>(parentDomNode: Node, newVNode: hs.Vnode, oldVNode: hs.Vnode, ref: Ref<N, any>, env: Env<N>): Ref<N, any> {
   if (oldVNode === newVNode) {
     return ref;
   }
@@ -366,23 +340,19 @@ export function patch<N>(
   }
   if (hs.isLeaf(newVNode) && hs.isLeaf(oldVNode)) {
     const ri = ref as ItemRef<N, any>;
-    // 这说明 哪怕 ItemRef 也应该有保留 env_ctx 
+    // 这说明 哪怕 ItemRef 也应该有保留 env_ctx
     env.patchAttributesBeforeChildren(ri.node, newVNode, oldVNode, ri.state.env_ctx);
     env.patchAttributesAfterChildren(ri.node, newVNode, oldVNode, ri.state.env_ctx);
     return ri;
   }
-  if (
-    hs.isElement(newVNode) &&
-    hs.isElement(oldVNode) &&
-    newVNode.type === oldVNode.type
-  ) {
+  if (hs.isElement(newVNode) && hs.isElement(oldVNode) && newVNode.type === oldVNode.type) {
     const ri = ref as ItemRef<N, any>;
     env.patchAttributesBeforeChildren(ri.node, newVNode, oldVNode, ri.state.env_ctx);
     let oldChildren = oldVNode.props.children;
     let newChildren = newVNode.props.children;
     if (oldChildren == null) {
       if (newChildren != null) {
-        ri.listRef = mount(newChildren, env.parentNode(ri.node)!, env, ri.state.ctx, ri.state.env_ctx);
+        ri.children_ref = mount(newChildren, env.parentNode(ri.node)!, env, ri.state.ctx, ri.state.env_ctx);
         // insertDom(ref_single.node, ref_single.children, null);
       }
     } else {
@@ -391,13 +361,7 @@ export function patch<N>(
         unmount(oldChildren, ref_single.children!, env);
         ref_single.children = undefined;
       } else {
-        ref_single.children = patchInPlace(
-          ref_single.node,
-          newChildren,
-          oldChildren,
-          ref_single.children!,
-          env,
-        );
+        ref_single.children = patchInPlace(ref_single.node, newChildren, oldChildren, ref_single.children!, env);
       }
     }
     patchDirectives(ref_single.node as Element, newVNode.props, oldVNode.props, env);
@@ -437,11 +401,7 @@ export function patch<N>(
     patchChildren(parentDomNode, newVNode, oldVNode, ref as RefArray, env);
     return ref;
   }
-  if (
-    isComponent(newVNode) &&
-    isComponent(oldVNode) &&
-    newVNode.type === oldVNode.type
-  ) {
+  if (isComponent(newVNode) && isComponent(oldVNode) && newVNode.type === oldVNode.type) {
     let ref_parent = ref as RefParent;
     const { ins, render, expose, vnode: old_inner_vnode } = ref_parent.childState;
     ins.props = newVNode.props;
@@ -450,10 +410,10 @@ export function patch<N>(
     ref_parent.childState.vnode = new_inner_vnode;
     ref_parent.childRef = childRef;
     return ref_parent;
-
   } else {
     return mount(newVNode, env);
   }
+
 }
 
-export function unmount()
+export function unmount();
