@@ -37,4 +37,4 @@ export const is_component = (c: any): c is { type: Function } =>
 // 最多也只有是给用户操作以及其引起的框架操作编上序号，按序号来，但仍然解决不了用户手动直接改状态）
 //
 
-// cankao : forgo/fre/preact
+// cankao : forgo/fre/preact/decca/deku/petit-dom/snabbdom/mithril.js

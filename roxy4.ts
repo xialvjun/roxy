@@ -38,6 +38,11 @@ export type Env<N = any> = {
   nextSibling(node: N): N | null;
 };
 
+type Fiber = {
+  tag: string | Function;
+
+}
+
 // const TASKS: any[] = [];
 // let IS_WORKING = false;
 // const START = (work: any) => {
@@ -242,6 +247,7 @@ export function mount<N>(vnode: hs.Vnode, parentNode: N, env: Env<N>, ctx: any =
     // 这样的话，似乎就没法异步停止了，也没法去重。或许停止可以做，但去重就做不到了。。。
     // 去重还是非常需要的，至于对称性问题，应该程序员自己根据生命周期做调整（例如动画，就应该 update 之后 onUpdated 之后再 update，而不是想当然的用 setTimeout 替换 onUpdated）
     // 去重可以 自己 update 后，父组件 update，祖 update，造成整个的自己只 render / update 一次，onUpdated 只执行一次，onUpdate 也许也只执行一次
+    // 也不对，就算用函数结构去控制，去重也可以做到，只要每次开始时都判断下状态，如果不符合自己的状态，说明前面的步骤已经重新开始执行了，那自己接下来就不用做了
     env_ctx = creation.ctx;
     env.insertBefore(parentNode, node, null);
     return { type: RefType.ITEM, node, state: { env_ctx } };
@@ -258,9 +264,19 @@ export function mount<N>(vnode: hs.Vnode, parentNode: N, env: Env<N>, ctx: any =
     return { type: RefType.ITEM, node, children_ref, state: { env_ctx, ctx } };
   }
   if (hs.isNonEmptyArray(vnode)) {
+    const ref_list = [];
+    // todo: 有太多副作用操作都混在 mount 或者别的这里了，导致就算要 onError 做组件的错误处理，一样要做副作用清理，非常复杂，所以副作用要分开
+    for (const child of vnode) {
+      try {
+        ref_list.push(mount(child, parentNode, env, ctx, env_ctx));
+      } catch (error) {
+        ref_list.forEach(unmount);
+        throw error;
+      }
+    }
     return {
       type: RefType.LIST,
-      ref_list: vnode.map(child => mount(child, parentNode, env, ctx, env_ctx)) as [any, ...any[]],
+      ref_list: ref_list as [any, ...any[]],//: vnode.map(child => mount(child, parentNode, env, ctx, env_ctx)) as [any, ...any[]],
       state: { env_ctx, ctx },
     };
   }
@@ -330,6 +346,8 @@ export function mount<N>(vnode: hs.Vnode, parentNode: N, env: Env<N>, ctx: any =
   // }
   throw new Error('mount: Invalid Vnode!');
 }
+
+export function unmount() {}
 
 export function patch<N>(parentDomNode: Node, newVNode: hs.Vnode, oldVNode: hs.Vnode, ref: Ref<N, any>, env: Env<N>): Ref<N, any> {
   if (oldVNode === newVNode) {
@@ -410,10 +428,7 @@ export function patch<N>(parentDomNode: Node, newVNode: hs.Vnode, oldVNode: hs.V
     ref_parent.childState.vnode = new_inner_vnode;
     ref_parent.childRef = childRef;
     return ref_parent;
-  } else {
-    return mount(newVNode, env);
   }
-
+  unmount();
+  return mount();
 }
-
-export function unmount();
