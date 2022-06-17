@@ -45,6 +45,14 @@ export const isComponent = (c: any): c is { type: Function } =>
 // ... 另外，mount 和 update 都是先 diff 后 patch_dom，mount 的 diff 有两种 diff_with_empty, diff_with_dom
 // ... Env 是不是也要变下，太过依赖 真实Node 的位置了，创建 EmptyVnode 都需要创建个 备注，在某些 Env 下可能没有备注的概念
 // 好像也没必要，roxy 框架本身并不使用真实Node，它只是把 真实Node 在 Env 的函数间传递，如果该 Env 需要位置概念，那创建备注的时候就返回位置数值来充当真实Node就好了
+
+// 可视化编程 有 即时模式 和 驻留模式。对应到这里有不同得 等待。例如 即时模式就没必要用 fiber 异步了
+// useLayoutEffect 表明 patch_dom 操作中间没停过
+// 假如说没有 useLayoutEffect ，那所有的副作用只需要保证顺序就好，至于是不是同步的并不重要，但有 useLayoutEffect，则需要副作用是同步执行的，至少自己以及自己子组件的副作用是同步的
+
+
+// hydrate 需要拿到全部的 基础元素 的 vnode
+
 const enum FiberStatus {
   INIT,
   SETUP,
