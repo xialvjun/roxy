@@ -34,7 +34,7 @@ export const isComponent = (c: any): c is { type: Function } =>
 // 但此时 dom 已经被子元素污染了，不知道该怎么 patch 了，onUpdate 对应的 render 没有副作用，那 onMount 的也可以没有
 // ! 应该是 patch 和 diff 不能放在一起。要先 diff，后 patch. diff 无副作用，是生成一个 task list, 会遍历当前组件 update 之后 render 出来的树
 // 对于原生 dom，是往 task list 里 push，对于组件，是判断是否 unmount，push task，然后调用子组件的 render，再 diff 子组件，push task。。。
-// 其实这样就相当于 diff 是一个 generator function
+// 其实这样就相当于 diff 是一个 generator function... 不对,不是 generator function, 因为generator function 是生成一个 task 就执行一个,反而不对... 直接是 Promise<task[]> 就好
 // ! 这里有重点是：千万不要想着用 nested task (即开始执行 task list 后，里面的某一个 task 会 render 子组件，继续 push task)
 // 因为这样就子组件 render 出错时，副作用已经发生了
 // ... 在这样的无副作用的 diff 之后，就是 patch_dom 了，patch_dom 理论上不能失败，其实 onMount 就可以在这里执行
@@ -49,9 +49,64 @@ export const isComponent = (c: any): c is { type: Function } =>
 // 可视化编程 有 即时模式 和 驻留模式。对应到这里有不同得 等待。例如 即时模式就没必要用 fiber 异步了
 // useLayoutEffect 表明 patch_dom 操作中间没停过
 // 假如说没有 useLayoutEffect ，那所有的副作用只需要保证顺序就好，至于是不是同步的并不重要，但有 useLayoutEffect，则需要副作用是同步执行的，至少自己以及自己子组件的副作用是同步的
-
+// ! 上面有说有 useLayoutEffect 类似的功能需求，所以 onMounted 必须得与其他副作用同步完成。其实可以完全不这样，可以增加 onMountedSync 即 on('mounted.sync')
+// 这样，该异步的就异步，该同步的就同步。框架本身是全异步的，diff 是异步的，run task list - commit 也是异步的（当然，开始 commit 之后，task list 就不变了，别人操作的是另一个数组）
 
 // hydrate 需要拿到全部的 基础元素 的 vnode
+
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+type Fiber = {
+  vnode: any;
+  node: any; // node 不一定不重复, 就 Component 的 node 跟其渲染的 this.$el 是同一个 node
+}
+
+function diff(vnode: any, fiber: any, )
+
+// 这里有 parent_node.childNodes = [];
+function mount_diff(vnode: any, parent_node: any, tasks: any[], env: any, env_ctx: string) {
+  if (isEmpty(vnode) || isLeaf(vnode)) {
+    return tasks.concat(() => {
+      const creation = env.createNode(vnode, env_ctx);
+      const node = creation.node;
+      env_ctx = creation.ctx;
+      env.insertBefore(parent_node, node, null);
+    })
+    if (isElement(vnode)) {
+      let node = null;
+      tasks.concat(() => {
+        const creation = env.createNode(vnode, env_ctx);
+        node = creation.node;
+        env_ctx = creation.ctx;
+        env.insertBefore(parent_node, node, null);
+        env.mountAttributesBeforeChildren(node, vnode, env_ctx);
+        const children_vnode = vnode.props.children;
+        const tasks = mount_diff(children_vnode, node, [], env, env_ctx);
+        env.mountAttributesAfterChildren(node, vnode, env_ctx);
+        // return { type: RefType.ITEM, node, children_ref, state: { env_ctx, ctx } };
+      })
+      tasks.concat()
+    }
+  }
+}
+
+async function diff1(current_vnode: any, previous_vnode: any, parent_node: any): Promise<(()=>void)[]> {
+  const [cv, pv, pn] = [current_vnode, previous_vnode, parent_node];
+  if (cv === pv) return [];
+  if (isEmpty(cv) && isEmpty(pv)) return [];
+  let tasks: (()=>void)[] = [];
+  return tasks;
+  // await delay(1000);
+  // yield () => { console.log(cv, pv, pn) };
+  // yield* diff1(cv, pv, pn);
+  // yield Promise.resolve(() => { console.log(cv) })
+}
+
+async function mount(vnode: any, parentNode: any, env: any, ctx: any = null, env_ctx = '') {
+  for await (const task of diff1(vnode, null, parentNode)) {
+    task();
+  }
+}
 
 const enum FiberStatus {
   INIT,
