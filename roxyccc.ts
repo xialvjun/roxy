@@ -1,28 +1,16 @@
-type EmptyVNode = false | [] | null | undefined;
+type EmptyVNode = boolean | [] | null | undefined;
 type NonEmptyArrayVNode = [VNode, ...VNode[]];
-type LeafVNode = string | number | true;
+type LeafVNode = string | number;
 type ElementVNode = { type: string; props: { children?: VNode }; key?: any };
 type ComponentVNode = { type: Function; props: {}; key?: any };
-export type VNode =
-  | EmptyVNode
-  | NonEmptyArrayVNode
-  | LeafVNode
-  | ElementVNode
-  | ComponentVNode;
+export type VNode = EmptyVNode | NonEmptyArrayVNode | LeafVNode | ElementVNode | ComponentVNode;
 
 export const is_empty = (c: any): c is EmptyVNode =>
-  c === false ||
-  (Array.isArray(c) && c.length === 0) ||
-  c === null ||
-  c === undefined;
-export const is_non_empty_array = (c: any): c is [any, ...any[]] =>
-  Array.isArray(c) && c.length > 0;
-export const is_leaf = (c: any): c is LeafVNode =>
-  typeof c === 'string' || typeof c === 'number';
-export const is_element = (c: any): c is { type: string } =>
-  c && typeof c.type === 'string';
-export const is_component = (c: any): c is { type: Function } =>
-  c && typeof c.type === 'function';
+  typeof c === 'boolean' || (Array.isArray(c) && c.length === 0) || c === null || c === undefined;
+export const is_non_empty_array = (c: any): c is [any, ...any[]] => Array.isArray(c) && c.length > 0;
+export const is_leaf = (c: any): c is LeafVNode => typeof c === 'string' || typeof c === 'number';
+export const is_element = (c: any): c is { type: string } => c && typeof c.type === 'string';
+export const is_component = (c: any): c is { type: Function } => c && typeof c.type === 'function';
 
 // 更新是 ins.update(() => modify_state() => patched_callback());
 // 任务种类和顺序
@@ -38,3 +26,19 @@ export const is_component = (c: any): c is { type: Function } =>
 //
 
 // cankao : forgo/fre/preact/decca/deku/petit-dom/snabbdom/mithril.js
+// cankao : decca | deku | forgo | fre | mithril.js | petit-dom | preact | snabbdom | 
+
+// ! diff 的要求：异步的，内部有主动暂停逻辑，无副作用的，后来的 diff 能造成前面的 diff 取消自身。
+// ! diff 是组件自己的 diff，下一次 diff 能取消上一次 diff。组件 A.update() 触发 A.diff()，然后在没 diff 完成前又 A.parent.update() 触发 A.parent.diff()
+// ! A.parent.diff 的过程中会触发 A.diff() 假如此时上一次的 A.diff() 已经结束得到 commit_queue, 自然该 commit_queue 会执行结束。
+// ! 如果此时上一次的 A.diff() 还未结束，则会被取消掉。另外，A.parent.diff 也可能不触发 A.diff ，假如做了 vdom 缓存的话
+async function diff() {
+  let commit_queue = [];
+  // ! DIFF_ID 应该不是全局的，而是组件的一个属性，类似表明组件是否 dirty
+  let diff_id = DIFF_ID;
+  await diff(children);
+  if (diff_id !== DIFF_ID) return new Promise<any>(res => {});
+  return commit_queue;
+}
+// ! 所以需要 Fiber 数据结构，Fiber 的类型跟 Ref 一样，ItemRef|ListRef|RoxyRef，然后 Fiber 内部做 diff
+

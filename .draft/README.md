@@ -201,3 +201,11 @@ const Setup = new Proxy({}, {
 // 这里有 cache 保证两次渲染 Setup.ComA, roxy 不会认为组件 type 不同导致重新构建, 而且 Setup.ComA 还给这个 setup 组件加了个 ComA 的业务相关的名字
 // 于是 <div>{condition && <Setup.ComA />}<Setup.ComB /></div>，此时不会因为 condition 从 1 变 0 而销毁 ConB
 ```
+
+# 一个 api 点子:
+vue3 的 computed 如果关注的是一个响应式对象的子属性，可能它的其他属性经常发生变化，如果是 shallowRef 的话，会造成 computed 经常要重新计算，而这重新计算造成即使依赖的子属性没发生变化，却因为重新计算而得到全新的值，既有本身重新计算的浪费，也有后续用新值造成下面的浪费。例如
+const abc = shallowRef({ loading: false, res: null });
+可能 loading 发生了数次变化， res 却没怎么变。但因为 computed(() => abc.value.res?.map(xxx)) 造成浪费。
+所以如果有个东西去做一次比较，来做一层拦截就好了。所以有 api 设计
+computed(() => abc.value.res, res => res?.map(xxx)) 或者 computed([() => abc.value.res], ([res]) => res?.map(xxx))
+其实就是一个 watch 修改一个 shallowRef，并且这个 shallowRef 只可以在 watch 里修改。另外要注意的是 res 要从参数里传进去，不能再在第二个参数里用 abc.value.res，因为这是个优化 api 的逻辑，而不是彻底改变的逻辑。如果还能在第二个参数里用 abc.value.res，则意义是 computed 只受第一个参数的影响，这是类似 react 的 useMemo, 不是 computed 逻辑
