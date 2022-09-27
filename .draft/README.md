@@ -209,3 +209,24 @@ const abc = shallowRef({ loading: false, res: null });
 所以如果有个东西去做一次比较，来做一层拦截就好了。所以有 api 设计
 computed(() => abc.value.res, res => res?.map(xxx)) 或者 computed([() => abc.value.res], ([res]) => res?.map(xxx))
 其实就是一个 watch 修改一个 shallowRef，并且这个 shallowRef 只可以在 watch 里修改。另外要注意的是 res 要从参数里传进去，不能再在第二个参数里用 abc.value.res，因为这是个优化 api 的逻辑，而不是彻底改变的逻辑。如果还能在第二个参数里用 abc.value.res，则意义是 computed 只受第一个参数的影响，这是类似 react 的 useMemo, 不是 computed 逻辑
+
+
+# 传递 context
+```jsx
+const Sub = (init_props, ins) => {
+  let s = 456;
+  return {
+    render: (props, ctx) => <div>{s}</div>,
+    context: { s }
+  }
+}
+const Par = (init_props, ins) => {
+  let p = 123;
+  return {
+    render: (props, ctx) => <Sub p={p}></Sub>,
+    context: { p }
+  }
+}
+```
+框架内部再给 Par 的子组件传递 context 时, `Sub.ins.ctx = Par.render.ctx = Object.assign(Object.create(Par.ins.ctx), Par.context)`, 这样, 类型传递就变得很通畅, 但有问题是, 直接去修改 ins.ctx 其实修改的是 父组件的 context, 会影响到父组件的 render 以及兄弟组件. 可以让 ins.ctx 已经是 Object.create 后的值，在 return context 之后再去 assign。即 `Sub.render.ctx = Object.assign(Sub.ins.ctx, Sub.context) = Object.assign(Object.assign(Par.ins.ctx, Par.context), Sub.context)`. 然后这样要注意，不能把 Par.context 当成一个对象来使用，因为 Object.assign 那一步会把它分解。倒是可以把 Par.ins.ctx 和 Par.render.ctx 当成对象来使用，他俩本来就是同一个对象，只是一个是赋值前，一个是赋值后。
+使用这个方法，而不是强求 `Object.setPrototypeOf(Par.context, Par.ins.ctx)` 有原因：1. 上下文本身应该互相独立，则 “context 的每个属性都必须要有单独的内部可变性” 这一点其实是可以接受的；2. 后者暴露了父组件的原型，可能影响倒流
