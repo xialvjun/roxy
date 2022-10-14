@@ -42,3 +42,4 @@ async function diff() {
 }
 // ! 所以需要 Fiber 数据结构，Fiber 的类型跟 Ref 一样，ItemRef|ListRef|RoxyRef，然后 Fiber 内部做 diff
 
+type Fiber = { ftype: 'item', vnode:  }
