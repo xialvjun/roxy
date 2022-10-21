@@ -42,4 +42,21 @@ async function diff() {
 }
 // ! 所以需要 Fiber 数据结构，Fiber 的类型跟 Ref 一样，ItemRef|ListRef|RoxyRef，然后 Fiber 内部做 diff
 
-type Fiber = { ftype: 'item', vnode:  }
+// type Fiber = { ftype: 'item', vnode: null }
+
+
+// ! 分步骤去写，先是只有 合并同步的 update，没有 分时分片，然后再加上分时分片
+// 但即使是 合并同步的update，它的逻辑也是
+update(task_a);
+update(task_b);
+function update(task) {
+  tasks.push(task);
+  queruMicrotask(() => {
+    // ! 至少 if (!tasks.length) 这句是执行了多次的
+    if (!tasks.length) return;
+    const ts = tasks;
+    tasks = [];
+    do_tasks(ts);
+  });
+}
+// 然后看 do_tasks 到底是什么？它是更新 **特定的** 组件的状态，并 patch **特定的** 组件

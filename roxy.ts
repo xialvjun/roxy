@@ -24,6 +24,9 @@ const try_catch_log = (fn: Function) => {
 // 不过这里只是底层写法，之后可以把函数包装起来，而且 env_dom 本身支持 null
 // ! Env 的 Ctx 不得被更改，而传对象都难免 Env 的实现修改了 ctx，所以干脆限制它为 string 好了，就当是进程间消息传递
 // Env 的 ctx 必须是 字符串，因为 roxy 不会对其产生新对象，子元素与父元素使用的同一对象，所以如果不是字符串，理论上会出现不正确的 Env 实现，修改了父元素的 ctx
+// ! 需要 BeforeChildren/AfterChildren 是因为 children 与属性可能是会产生影响的
+// ! 例如 select 的 option 以及其 value，如果 children 的 option 没加上此 value，则设置 value 会静默失败
+// ! 又例如设置 innerHTML 会覆盖 children
 export type Env<N = any> = {
   createNode(vnode: any, ctx: string): { node: N; ctx: string };
   mountAttributesBeforeChildren(node: N, vnode: any, ctx: string): void;
