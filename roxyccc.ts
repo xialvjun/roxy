@@ -51,7 +51,7 @@ update(task_a);
 update(task_b);
 function update(task) {
   tasks.push(task);
-  queruMicrotask(() => {
+  queueMicrotask(() => {
     // ! 至少 if (!tasks.length) 这句是执行了多次的
     if (!tasks.length) return;
     const ts = tasks;
@@ -59,4 +59,10 @@ function update(task) {
     do_tasks(ts);
   });
 }
-// 然后看 do_tasks 到底是什么？它是更新 **特定的** 组件的状态，并 patch **特定的** 组件
+// 然后看 do_tasks 到底是什么？它是更新 **特定的** 组件的状态（即运行 task_a()），并 patch **特定的** 组件。所以，要么 task 里有组件引用，要么 do_tasks 里有组件引用
+// do_task 并不 patch, 它只是 diff + queueMacrotask(patch) ---- 还没想清楚这里的逻辑，它应有 diff + queueMicrotask + queueMacrotask + patch
+// 感觉应该就是 diff + queueMacrotask(patch) 来把 patch 延后，而 diff 却是完整的多次 diff，后面的 diff 的 vdom 替换前面的 vdom
+// diff 与 patch 到底如何分离... fre 是 fiber { children: fiber[], next_task: fiber }  next_task = children[0] 组成一个左树优先的
+// 这个链出现时 diff 已经结束，所有的都是真实的叶子 dom，直接 patch 就好...
+// 也就是 fre 是 diff 时就修改 fiber （dom 的映射对象），然后 patch/commit 时根据 fre 修改 dom
+
