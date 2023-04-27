@@ -41,6 +41,9 @@ export type Env<N = any> = {
   nextSibling(node: N): N | null;
 };
 
+// render/update / hydrate
+// mount/patch
+
 // const TASKS: any[] = [];
 // let IS_WORKING = false;
 // const START = (work: any) => {
